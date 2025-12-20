@@ -18,27 +18,27 @@ public class Player {
     @Column(name = "username", unique = true, nullable = false)
     private String username;
 
-    @Column(name = "high_score")
-    private int highScore = 0;
+    // 2. Modules
+    // CascadeType.ALL ensures when saving or deleting a Player,
+    // it automatically saves or deletes the corresponding variable such as health, inventory, etc.
 
-    // 2. Survival
-    @Column(name = "current_hp")
-    private int currentHp = 100;
+    @OneToOne(cascade = CascadeType.ALL)
+    @JoinColumn(name = "health_id", referencedColumnName = "id")
+    private Health health;
 
-    @Column(name = "hunger_level")
-    private int hungerLevel = 100;
+    @OneToOne(cascade = CascadeType.ALL)
+    @JoinColumn(name = "inventory_id", referencedColumnName = "id")
+    private Inventory inventory;
 
-    @Column(name = "thirst_level")
-    private int thirstLevel = 100;
+    @OneToOne(cascade = CascadeType.ALL)
+    @JoinColumn(name = "score_id", referencedColumnName = "id")
+    private Score score;
 
-    // 3. Progress
-    @Column(name = "last_checkpoint_id")
-    private String lastCheckpointId = "start_area";
+    @OneToOne(cascade = CascadeType.ALL)
+    @JoinColumn(name = "progress_id", referencedColumnName = "id")
+    private GameProgress gameProgress;
 
-    @Column(name = "is_boss_defeated")
-    private boolean isBossDefeated = false;
-
-    // 4. Metadata
+    // 3. Metadata
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
@@ -47,91 +47,32 @@ public class Player {
 
     public Player(String username) {
         this.username = username;
+        this.health = new Health();
+        this.inventory = new Inventory();
+        this.score = new Score();
+        this.gameProgress = new GameProgress();
     }
 
-    // Getter and Setter
-    public UUID getPlayerId() {
-        return playerId;
-    }
+    // Getters and Setters
 
-    public void setPlayerId(UUID playerId) {
-        this.playerId = playerId;
-    }
+    public UUID getPlayerId() { return playerId; }
+    public void setPlayerId(UUID playerId) { this.playerId = playerId; }
 
-    public String getUsername() {
-        return username;
-    }
+    public String getUsername() { return username; }
+    public void setUsername(String username) { this.username = username; }
 
-    public void setUsername(String username) {
-        this.username = username;
-    }
+    public Health getHealth() { return health; }
+    public void setHealth(Health health) { this.health = health; }
 
-    public int getHighScore() {
-        return highScore;
-    }
+    public Inventory getInventory() { return inventory; }
+    public void setInventory(Inventory inventory) { this.inventory = inventory; }
 
-    public void setHighScore(int highScore) {
-        this.highScore = highScore;
-    }
+    public Score getScore() { return score; }
+    public void setScore(Score score) { this.score = score; }
 
-    public int getCurrentHp() {
-        return currentHp;
-    }
+    public GameProgress getGameProgress() { return gameProgress; }
+    public void setGameProgress(GameProgress gameProgress) { this.gameProgress = gameProgress; }
 
-    public void setCurrentHp(int currentHp) {
-        this.currentHp = currentHp;
-    }
-
-    public int getHungerLevel() {
-        return hungerLevel;
-    }
-
-    public void setHungerLevel(int hungerLevel) {
-        this.hungerLevel = hungerLevel;
-    }
-
-    public int getThirstLevel() {
-        return thirstLevel;
-    }
-
-    public void setThirstLevel(int thirstLevel) {
-        this.thirstLevel = thirstLevel;
-    }
-
-    public String getLastCheckpointId() {
-        return lastCheckpointId;
-    }
-
-    public void setLastCheckpointId(String lastCheckpointId) {
-        this.lastCheckpointId = lastCheckpointId;
-    }
-
-    public boolean isBossDefeated() {
-        return isBossDefeated;
-    }
-
-    public void setBossDefeated(boolean bossDefeated) {
-        isBossDefeated = bossDefeated;
-    }
-
-    public LocalDateTime getCreatedAt() {
-        return createdAt;
-    }
-
-    public void setCreatedAt(LocalDateTime createdAt) {
-        this.createdAt = createdAt;
-    }
-
-    // Helper Methods
-    public void updateSurvivalStats(int hpChange, int hungerChange, int thirstChange) {
-        this.currentHp = Math.max(0, Math.min(100, this.currentHp + hpChange));
-        this.hungerLevel = Math.max(0, Math.min(100, this.hungerLevel + hungerChange));
-        this.thirstLevel = Math.max(0, Math.min(100, this.thirstLevel + thirstChange));
-    }
-
-    public void updateHighScore(int newScore) {
-        if (newScore > this.highScore) {
-            this.highScore = newScore;
-        }
-    }
+    public LocalDateTime getCreatedAt() { return createdAt; }
+    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
 }
