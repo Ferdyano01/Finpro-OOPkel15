@@ -3,7 +3,7 @@ package com.Ferdyano.frontend.Screen;
 import com.Ferdyano.frontend.TheLostKeyGame;
 import com.Ferdyano.frontend.Managers.HealthManager;
 import com.Ferdyano.frontend.core.Player;
-import com.Ferdyano.frontend.core.Item; // <--- Import Item
+import com.Ferdyano.frontend.core.Item;
 import com.Ferdyano.frontend.core.Checkpoint;
 import com.Ferdyano.frontend.core.Portal;
 import com.Ferdyano.frontend.ui.SurvivalHud;
@@ -16,7 +16,7 @@ import com.badlogic.gdx.graphics.OrthographicCamera;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.TextureRegion;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
-import com.badlogic.gdx.math.MathUtils; // <--- Import MathUtils
+import com.badlogic.gdx.math.MathUtils;
 import com.badlogic.gdx.math.Rectangle;
 import com.badlogic.gdx.scenes.scene2d.Stage;
 import com.badlogic.gdx.scenes.scene2d.ui.Label;
@@ -24,6 +24,7 @@ import com.badlogic.gdx.scenes.scene2d.ui.TextButton;
 import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
 import com.badlogic.gdx.scenes.scene2d.InputEvent;
 import com.badlogic.gdx.utils.Array;
+import com.badlogic.gdx.utils.Timer; // <--- Import Timer
 import com.badlogic.gdx.utils.viewport.FitViewport;
 import com.badlogic.gdx.Input.Keys;
 import com.badlogic.gdx.math.Vector2;
@@ -41,26 +42,23 @@ public class GameScreen implements Screen {
     private final Checkpoint mainCheckpoint;
     private final Portal exitPortal;
 
-    // --- TAMBAHAN: LIST ITEM ---
     private Array<Item> itemList;
 
     private boolean isQuestionActive = false;
     private final Label questionLabel;
     private final TextButton yesButton, noButton;
 
-    // --- SYSTEM COLLISION ---
     private final Array<Rectangle> obstacles = new Array<>();
-
     private final ShapeRenderer shapeRenderer;
     private final boolean DEBUG_MODE = false;
 
     private final float WORLD_WIDTH = 1300f;
     private final float WORLD_HEIGHT = 720f;
-
-    // SKALA PLAYER
     private final float PLAYER_SCALE = 3.5f;
-
     private final float HITBOX_OFFSET_X = 60f;
+
+    // --- VARIABEL GAME OVER ---
+    private boolean isGameOver = false;
 
     public GameScreen(TheLostKeyGame game) {
         this.game = game;
@@ -79,13 +77,9 @@ public class GameScreen implements Screen {
             game.getAssetManager().get("idle.png", Texture.class)
         );
 
-        // Spawn Point Aman
         player.setPosition(600f, 250f);
-
-        // INISIALISASI RINTANGAN
         createObstacles();
 
-        // --- INISIALISASI ITEM (BUAH & AIR) ---
         itemList = new Array<>();
         spawnResources();
 
@@ -109,32 +103,19 @@ public class GameScreen implements Screen {
         yesButton.setSize(100, 50); noButton.setSize(100, 50);
         yesButton.setVisible(false); noButton.setVisible(false);
 
-        yesButton.addListener(new ClickListener() {
-            @Override public void clicked(InputEvent event, float x, float y) { handleAnswer(true); }
-        });
-        noButton.addListener(new ClickListener() {
-            @Override public void clicked(InputEvent event, float x, float y) { handleAnswer(false); }
-        });
+        yesButton.addListener(new ClickListener() { @Override public void clicked(InputEvent event, float x, float y) { handleAnswer(true); } });
+        noButton.addListener(new ClickListener() { @Override public void clicked(InputEvent event, float x, float y) { handleAnswer(false); } });
 
-        uiStage.addActor(yesButton);
-        uiStage.addActor(noButton);
+        uiStage.addActor(yesButton); uiStage.addActor(noButton);
     }
 
-    // Method untuk spawn item secara acak
     private void spawnResources() {
         Texture fTex = game.getAssetManager().get("fruit.png", Texture.class);
         Texture wTex = game.getAssetManager().get("water.png", Texture.class);
-
-        // Spawn 4 Buah & 4 Air di lokasi acak
         for (int i = 0; i < 4; i++) {
-            // Random posisi X dan Y (disesuaikan agar tidak keluar map)
-            float rx = MathUtils.random(50, 1200);
-            float ry = MathUtils.random(50, 650);
-
+            float rx = MathUtils.random(50, 1200); float ry = MathUtils.random(50, 650);
             itemList.add(new Item("Buah", "FRUIT", "Segar", rx, ry, fTex));
-
-            rx = MathUtils.random(50, 1200);
-            ry = MathUtils.random(50, 650);
+            rx = MathUtils.random(50, 1200); ry = MathUtils.random(50, 650);
             itemList.add(new Item("Air", "WATER", "Murni", rx, ry, wTex));
         }
     }
@@ -149,29 +130,41 @@ public class GameScreen implements Screen {
     private void handleAnswer(boolean isYes) {
         if (isYes) mainCheckpoint.activate();
         isQuestionActive = false;
-        questionLabel.setVisible(false);
-        yesButton.setVisible(false);
-        noButton.setVisible(false);
+        questionLabel.setVisible(false); yesButton.setVisible(false); noButton.setVisible(false);
     }
 
-    @Override
-    public void show() {
+    @Override public void show() {
         InputMultiplexer multiplexer = new InputMultiplexer();
-        multiplexer.addProcessor(uiStage);
-        Gdx.input.setInputProcessor(multiplexer);
+        multiplexer.addProcessor(uiStage); Gdx.input.setInputProcessor(multiplexer);
     }
 
     private void update(float delta) {
+        // Jika game over, hentikan update logika
+        if (isGameOver) return;
+
         HealthManager.getInstance().update(delta);
+
+        // --- CEK KONDISI MATI (GAME OVER) ---
+        if (HealthManager.getInstance().getHealth() <= 0) {
+            handleEnd("GAME OVER! HP ANDA HABIS!");
+            return;
+        }
+        if (HealthManager.getInstance().getHunger() <= 0) {
+            handleEnd("GAME OVER! ANDA MATI KELAPARAN!");
+            return;
+        }
+        if (HealthManager.getInstance().getThirst() <= 0) {
+            handleEnd("GAME OVER! ANDA MATI KEHAUSAN!");
+            return;
+        }
+        // ------------------------------------
 
         float oldX = player.getPositionX();
         float oldY = player.getPositionY();
-        float inputX = 0;
-        float inputY = 0;
+        float inputX = 0, inputY = 0;
         float speed = 200f;
 
         if (!isQuestionActive) {
-            // GERAK 4 ARAH TEGAS
             if (Gdx.input.isKeyPressed(Keys.W)) { inputY = 1; inputX = 0; }
             else if (Gdx.input.isKeyPressed(Keys.S)) { inputY = -1; inputX = 0; }
             else if (Gdx.input.isKeyPressed(Keys.A)) { inputX = -1; inputY = 0; }
@@ -181,14 +174,12 @@ public class GameScreen implements Screen {
         player.setVelocity(inputX * speed, inputY * speed);
         player.update(delta);
 
-        // Simple Collision Logic with Obstacles
         if (inputX != 0 || inputY != 0) {
             if (!isValidPosition(player.getPositionX(), player.getPositionY())) {
                 player.setPosition(oldX, oldY);
             }
         }
 
-        // --- CEK AMBIL ITEM ---
         checkItemCollisions();
 
         if (mainCheckpoint.isActivated()) exitPortal.update(delta);
@@ -197,9 +188,7 @@ public class GameScreen implements Screen {
         if (!mainCheckpoint.isActivated() && !isQuestionActive) {
             if (Vector2.dst(player.getPositionX(), player.getPositionY(), 600, 350) < 100) {
                 isQuestionActive = true;
-                questionLabel.setVisible(true);
-                yesButton.setVisible(true); yesButton.setPosition(500, 300);
-                noButton.setVisible(true); noButton.setPosition(650, 300);
+                questionLabel.setVisible(true); yesButton.setVisible(true); yesButton.setPosition(500, 300); noButton.setVisible(true); noButton.setPosition(650, 300);
             }
         }
         if (mainCheckpoint.isActivated()) {
@@ -209,18 +198,40 @@ public class GameScreen implements Screen {
         }
     }
 
-    // Logika tabrakan dengan item
+    // --- METHOD GAME OVER ---
+    private void handleEnd(String msg) {
+        if (isGameOver) return;
+        isGameOver = true;
+
+        // Hentikan pemain
+        player.setVelocity(0, 0);
+
+        Label.LabelStyle style = new Label.LabelStyle(game.getSkin().getFont("default-font"), Color.RED);
+        Label statusLabel = new Label(msg, style);
+        statusLabel.setFontScale(2.0f); // Tulisannya besar
+
+        // Taruh di tengah layar
+        statusLabel.setPosition(WORLD_WIDTH / 2 - (statusLabel.getWidth() * 2) / 2, 400);
+        uiStage.addActor(statusLabel);
+
+        // Bersihkan observer
+        HealthManager.getInstance().clearObservers();
+
+        // Tunggu 3 detik, lalu balik ke Main Menu
+        Timer.schedule(new Timer.Task() {
+            @Override public void run() {
+                HealthManager.getInstance().resetStatus(); // Reset HP/Lapar penuh lagi
+                game.setScreen(new MainMenuScreen(game));
+            }
+        }, 3.0f);
+    }
+
     private void checkItemCollisions() {
         for (int i = itemList.size - 1; i >= 0; i--) {
             Item item = itemList.get(i);
-            // Gunakan hitbox item 50x50
             if (player.getBounds().overlaps(new Rectangle(item.getX(), item.getY(), 50, 50))) {
-                if (item.getType().equals("FRUIT")) {
-                    HealthManager.getInstance().consumeFood(20); // Tambah Lapar
-                } else if (item.getType().equals("WATER")) {
-                    HealthManager.getInstance().consumeWater(20); // Tambah Haus
-                }
-                // Hapus item dari layar setelah diambil
+                if (item.getType().equals("FRUIT")) HealthManager.getInstance().consumeFood(20);
+                else if (item.getType().equals("WATER")) HealthManager.getInstance().consumeWater(20);
                 itemList.removeIndex(i);
             }
         }
@@ -238,6 +249,8 @@ public class GameScreen implements Screen {
     public void render(float delta) {
         Gdx.gl.glClearColor(0.2f, 0.2f, 0.2f, 1);
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
+
+        // Update logic (akan berhenti jika isGameOver = true)
         update(delta);
 
         game.getBatch().setProjectionMatrix(camera.combined);
@@ -245,7 +258,6 @@ public class GameScreen implements Screen {
 
         game.getBatch().draw(gameWorldTexture, 0, 0, WORLD_WIDTH, WORLD_HEIGHT);
 
-        // --- GAMBAR ITEM ---
         for (Item item : itemList) {
             game.getBatch().draw(item.getTexture(), item.getX(), item.getY(), 50, 50);
         }
@@ -256,6 +268,7 @@ public class GameScreen implements Screen {
             float scale = exitPortal.getCurrentScale();
             float effectSize = 150f * scale;
             game.getBatch().draw(exitPortal.getEffectRegion(), 900 + (48-effectSize)/2, 500 + (48-effectSize)/2, effectSize, effectSize);
+            game.getBatch().draw(exitPortal.getFrameTexture(), exitPortal.getPosition().x, exitPortal.getPosition().y, 60, 60);
         }
 
         TextureRegion currentFrame = player.getCurrentFrame();

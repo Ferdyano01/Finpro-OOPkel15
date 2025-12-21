@@ -4,11 +4,12 @@ import com.Ferdyano.frontend.TheLostKeyGame;
 import com.Ferdyano.frontend.Managers.HealthManager;
 import com.Ferdyano.frontend.core.Player;
 import com.Ferdyano.frontend.core.Item;
-import com.Ferdyano.frontend.core.Portal; // Import Class Portal
+import com.Ferdyano.frontend.core.Portal;
 import com.Ferdyano.frontend.ui.SurvivalHud;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.InputMultiplexer;
 import com.badlogic.gdx.Screen;
+import com.badlogic.gdx.graphics.Color; // <--- Import Color
 import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.OrthographicCamera;
@@ -21,6 +22,7 @@ import com.badlogic.gdx.scenes.scene2d.ui.TextButton;
 import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
 import com.badlogic.gdx.scenes.scene2d.InputEvent;
 import com.badlogic.gdx.utils.Array;
+import com.badlogic.gdx.utils.Timer; // <--- Import Timer
 import com.badlogic.gdx.utils.viewport.FitViewport;
 import com.badlogic.gdx.Input.Keys;
 
@@ -31,23 +33,21 @@ public class LevelDuaScreen implements Screen {
     private final Stage uiStage;
     private final Player player;
     private final Texture background;
-
-    // --- PERUBAHAN: GANTI TEXTURE MANUAL JADI OBJEK PORTAL ---
     private final Portal exitPortal;
-
     private Array<Item> itemList;
     private int collectedFruit = 0;
     private int collectedWater = 0;
-
     private boolean isCheckpointActive = false;
     private boolean isPortalSpawned = false;
     private boolean dialogAlreadyShown = false;
-
     private final float PLAYER_SCALE = 3.5f;
     private final float WORLD_WIDTH = 1280f;
     private final float WORLD_HEIGHT = 720f;
     private final float BOTTOM_OFFSET = 10f;
     private final float TOP_OFFSET = 70f;
+
+    // --- VARIABEL GAME OVER ---
+    private boolean isGameOver = false;
 
     public LevelDuaScreen(TheLostKeyGame game) {
         this.game = game;
@@ -62,7 +62,6 @@ public class LevelDuaScreen implements Screen {
             this.background = game.getAssetManager().get("background.png", Texture.class);
         }
 
-        // --- INISIALISASI PORTAL ---
         // Lokasi Portal Level 2: (100, 120)
         this.exitPortal = new Portal(
             game.getAssetManager().get("portal_frame.png", Texture.class),
@@ -84,7 +83,9 @@ public class LevelDuaScreen implements Screen {
         itemList = new Array<>();
         spawnResources();
 
-        HealthManager.getInstance().resetStatus();
+        // Tidak reset status di sini agar HP dari level sebelumnya terbawa
+        // HealthManager.getInstance().resetStatus();
+
         this.uiStage.addActor(new SurvivalHud(game.getSkin(), game));
     }
 
@@ -111,15 +112,9 @@ public class LevelDuaScreen implements Screen {
                 itemList.removeIndex(i);
             }
         }
+        if (itemList.size == 0 && !dialogAlreadyShown && !isPortalSpawned) showCheckpointDialog();
 
-        if (itemList.size == 0 && !dialogAlreadyShown && !isPortalSpawned) {
-            showCheckpointDialog();
-        }
-
-        // Cek tabrakan dengan portal menggunakan posisi dari objek Portal
-        // Kita asumsikan ukuran hitbox portal 60x60
         Rectangle portalHitbox = new Rectangle(exitPortal.getPosition().x, exitPortal.getPosition().y, 60, 60);
-
         if (isPortalSpawned && player.getBounds().overlaps(portalHitbox)) {
             HealthManager.getInstance().clearObservers();
             game.setScreen(new LevelTigaScreen(game));
@@ -130,79 +125,62 @@ public class LevelDuaScreen implements Screen {
         isCheckpointActive = true;
         dialogAlreadyShown = true;
         player.setVelocity(0, 0);
-
         final Label label = new Label("APAKAH SELURUH ITEM TELAH TERKUMPUL?", game.getSkin());
         label.setPosition(WORLD_WIDTH / 2 - label.getWidth()/2, 400);
-
         final TextButton yesBtn = new TextButton("YA", game.getSkin());
-        yesBtn.setPosition(520, 320);
-        yesBtn.setSize(100, 50);
-
+        yesBtn.setPosition(520, 320); yesBtn.setSize(100, 50);
         final TextButton noBtn = new TextButton("TIDAK", game.getSkin());
-        noBtn.setPosition(660, 320);
-        noBtn.setSize(100, 50);
+        noBtn.setPosition(660, 320); noBtn.setSize(100, 50);
 
-        yesBtn.addListener(new ClickListener() {
-            @Override
-            public void clicked(InputEvent event, float x, float y) {
-                isPortalSpawned = true;
-                isCheckpointActive = false;
-                label.remove(); yesBtn.remove(); noBtn.remove();
+        yesBtn.addListener(new ClickListener() { @Override public void clicked(InputEvent event, float x, float y) { isPortalSpawned = true; isCheckpointActive = false; label.remove(); yesBtn.remove(); noBtn.remove(); }});
+        noBtn.addListener(new ClickListener() { @Override public void clicked(InputEvent event, float x, float y) { isCheckpointActive = false; dialogAlreadyShown = false; label.remove(); yesBtn.remove(); noBtn.remove(); }});
+        uiStage.addActor(label); uiStage.addActor(yesBtn); uiStage.addActor(noBtn);
+    }
+
+    // --- METHOD GAME OVER ---
+    private void handleEnd(String msg) {
+        if (isGameOver) return;
+        isGameOver = true;
+
+        player.setVelocity(0, 0);
+
+        Label.LabelStyle style = new Label.LabelStyle(game.getSkin().getFont("default-font"), Color.RED);
+        Label statusLabel = new Label(msg, style);
+        statusLabel.setFontScale(2.0f);
+        statusLabel.setPosition(WORLD_WIDTH / 2 - (statusLabel.getWidth() * 2) / 2, 400);
+        uiStage.addActor(statusLabel);
+
+        HealthManager.getInstance().clearObservers();
+
+        Timer.schedule(new Timer.Task() {
+            @Override public void run() {
+                HealthManager.getInstance().resetStatus();
+                game.setScreen(new MainMenuScreen(game));
             }
-        });
-
-        noBtn.addListener(new ClickListener() {
-            @Override
-            public void clicked(InputEvent event, float x, float y) {
-                isCheckpointActive = false;
-                dialogAlreadyShown = false;
-                label.remove(); yesBtn.remove(); noBtn.remove();
-            }
-        });
-
-        uiStage.addActor(label);
-        uiStage.addActor(yesBtn);
-        uiStage.addActor(noBtn);
+        }, 3.0f);
     }
 
     @Override
     public void render(float delta) {
-        Gdx.gl.glClearColor(0, 0, 0, 1);
-        Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
+        Gdx.gl.glClearColor(0, 0, 0, 1); Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
 
-        if (!isCheckpointActive) {
-            updateLogic(delta);
-        }
-
-        // Update animasi portal
-        if (isPortalSpawned) {
-            exitPortal.update(delta);
-        }
+        if (!isCheckpointActive) updateLogic(delta);
+        if (isPortalSpawned) exitPortal.update(delta);
 
         game.getBatch().setProjectionMatrix(camera.combined);
         game.getBatch().begin();
         game.getBatch().draw(background, 0, 0, WORLD_WIDTH, WORLD_HEIGHT);
 
-        // --- RENDER PORTAL DENGAN EFEK BERDENYUT ---
         if (isPortalSpawned) {
-            // Gambar Frame (Diam)
             game.getBatch().draw(exitPortal.getFrameTexture(), exitPortal.getPosition().x, exitPortal.getPosition().y, 60, 60);
-
-            // Gambar Efek (Berdenyut)
             float scale = exitPortal.getCurrentScale();
-            // Base size efek kita atur 80f biar agak bersinar keluar
             float effectSize = 80f * scale;
-
-            // Logika Center: (Posisi + Setengah Lebar Frame) - (Setengah Ukuran Efek)
             float centerX = exitPortal.getPosition().x + 30f - (effectSize / 2);
             float centerY = exitPortal.getPosition().y + 30f - (effectSize / 2);
-
             game.getBatch().draw(exitPortal.getEffectRegion(), centerX, centerY, effectSize, effectSize);
         }
 
-        for (Item it : itemList) {
-            game.getBatch().draw(it.getTexture(), it.getX(), it.getY(), 50, 50);
-        }
+        for (Item it : itemList) game.getBatch().draw(it.getTexture(), it.getX(), it.getY(), 50, 50);
 
         TextureRegion currentFrame = player.getCurrentFrame();
         float drawWidth = currentFrame.getRegionWidth() * PLAYER_SCALE;
@@ -210,13 +188,29 @@ public class LevelDuaScreen implements Screen {
         game.getBatch().draw(currentFrame, player.getPositionX(), player.getPositionY(), drawWidth, drawHeight);
 
         game.getBatch().end();
-
-        uiStage.act(delta);
-        uiStage.draw();
+        uiStage.act(delta); uiStage.draw();
     }
 
     private void updateLogic(float delta) {
+        // Jika game over, stop logic
+        if (isGameOver) return;
+
         HealthManager.getInstance().update(delta);
+
+        // --- CEK KONDISI MATI ---
+        if (HealthManager.getInstance().getHealth() <= 0) {
+            handleEnd("GAME OVER! HP ANDA HABIS!");
+            return;
+        }
+        if (HealthManager.getInstance().getHunger() <= 0) {
+            handleEnd("GAME OVER! ANDA MATI KELAPARAN!");
+            return;
+        }
+        if (HealthManager.getInstance().getThirst() <= 0) {
+            handleEnd("GAME OVER! ANDA MATI KEHAUSAN!");
+            return;
+        }
+
         float speed = 350f;
         float dx = 0, dy = 0;
 
@@ -235,20 +229,11 @@ public class LevelDuaScreen implements Screen {
         else if (player.getPositionY() > WORLD_HEIGHT - (player.getCurrentFrame().getRegionHeight() * PLAYER_SCALE) + TOP_OFFSET) {
             player.setPosition(player.getPositionX(), WORLD_HEIGHT - (player.getCurrentFrame().getRegionHeight() * PLAYER_SCALE) + TOP_OFFSET);
         }
-
-        checkCollisions();
-        camera.update();
+        checkCollisions(); camera.update();
     }
 
-    @Override public void show() {
-        InputMultiplexer multiplexer = new InputMultiplexer();
-        multiplexer.addProcessor(uiStage);
-        Gdx.input.setInputProcessor(multiplexer);
-    }
-    @Override public void resize(int width, int height) {
-        viewport.update(width, height);
-        uiStage.getViewport().update(width, height, true);
-    }
+    @Override public void show() { InputMultiplexer multiplexer = new InputMultiplexer(); multiplexer.addProcessor(uiStage); Gdx.input.setInputProcessor(multiplexer); }
+    @Override public void resize(int w, int h) { viewport.update(w, h); uiStage.getViewport().update(w, h, true); }
     @Override public void dispose() { uiStage.dispose(); }
     @Override public void hide() { Gdx.input.setInputProcessor(null); }
     @Override public void pause() {} @Override public void resume() {}
