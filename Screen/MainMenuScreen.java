@@ -121,6 +121,6 @@ public class MainMenuScreen implements Screen {
     @Override
     public void dispose() {
         stage.dispose();
-        // Musik tidak perlu didispose di sini karena dikelola oleh AssetManager global
+
     }
 }

@@ -3,6 +3,9 @@ package com.Ferdyano.frontend.Screen;
 import com.Ferdyano.frontend.TheLostKeyGame;
 import com.Ferdyano.frontend.Managers.HealthManager;
 import com.Ferdyano.frontend.core.Player;
+import com.Ferdyano.frontend.core.Item; // <--- Import Item
+import com.Ferdyano.frontend.core.Checkpoint;
+import com.Ferdyano.frontend.core.Portal;
 import com.Ferdyano.frontend.ui.SurvivalHud;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.InputMultiplexer;
@@ -13,6 +16,7 @@ import com.badlogic.gdx.graphics.OrthographicCamera;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.TextureRegion;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
+import com.badlogic.gdx.math.MathUtils; // <--- Import MathUtils
 import com.badlogic.gdx.math.Rectangle;
 import com.badlogic.gdx.scenes.scene2d.Stage;
 import com.badlogic.gdx.scenes.scene2d.ui.Label;
@@ -23,8 +27,6 @@ import com.badlogic.gdx.utils.Array;
 import com.badlogic.gdx.utils.viewport.FitViewport;
 import com.badlogic.gdx.Input.Keys;
 import com.badlogic.gdx.math.Vector2;
-import com.Ferdyano.frontend.core.Checkpoint;
-import com.Ferdyano.frontend.core.Portal;
 
 public class GameScreen implements Screen {
     private final TheLostKeyGame game;
@@ -39,20 +41,25 @@ public class GameScreen implements Screen {
     private final Checkpoint mainCheckpoint;
     private final Portal exitPortal;
 
+    // --- TAMBAHAN: LIST ITEM ---
+    private Array<Item> itemList;
+
     private boolean isQuestionActive = false;
     private final Label questionLabel;
     private final TextButton yesButton, noButton;
 
+    // --- SYSTEM COLLISION ---
     private final Array<Rectangle> obstacles = new Array<>();
+
     private final ShapeRenderer shapeRenderer;
     private final boolean DEBUG_MODE = false;
 
     private final float WORLD_WIDTH = 1300f;
     private final float WORLD_HEIGHT = 720f;
+
+    // SKALA PLAYER
     private final float PLAYER_SCALE = 3.5f;
 
-    private final float HITBOX_WIDTH = 60f;
-    private final float HITBOX_HEIGHT = 40f;
     private final float HITBOX_OFFSET_X = 60f;
 
     public GameScreen(TheLostKeyGame game) {
@@ -72,8 +79,15 @@ public class GameScreen implements Screen {
             game.getAssetManager().get("idle.png", Texture.class)
         );
 
+        // Spawn Point Aman
         player.setPosition(600f, 250f);
+
+        // INISIALISASI RINTANGAN
         createObstacles();
+
+        // --- INISIALISASI ITEM (BUAH & AIR) ---
+        itemList = new Array<>();
+        spawnResources();
 
         this.mainCheckpoint = new Checkpoint(game.getAssetManager().get("SleepDog.png", Texture.class), 600f, 350f);
         this.exitPortal = new Portal(
@@ -104,6 +118,25 @@ public class GameScreen implements Screen {
 
         uiStage.addActor(yesButton);
         uiStage.addActor(noButton);
+    }
+
+    // Method untuk spawn item secara acak
+    private void spawnResources() {
+        Texture fTex = game.getAssetManager().get("fruit.png", Texture.class);
+        Texture wTex = game.getAssetManager().get("water.png", Texture.class);
+
+        // Spawn 4 Buah & 4 Air di lokasi acak
+        for (int i = 0; i < 4; i++) {
+            // Random posisi X dan Y (disesuaikan agar tidak keluar map)
+            float rx = MathUtils.random(50, 1200);
+            float ry = MathUtils.random(50, 650);
+
+            itemList.add(new Item("Buah", "FRUIT", "Segar", rx, ry, fTex));
+
+            rx = MathUtils.random(50, 1200);
+            ry = MathUtils.random(50, 650);
+            itemList.add(new Item("Air", "WATER", "Murni", rx, ry, wTex));
+        }
     }
 
     private void createObstacles() {
@@ -138,6 +171,7 @@ public class GameScreen implements Screen {
         float speed = 200f;
 
         if (!isQuestionActive) {
+            // GERAK 4 ARAH TEGAS
             if (Gdx.input.isKeyPressed(Keys.W)) { inputY = 1; inputX = 0; }
             else if (Gdx.input.isKeyPressed(Keys.S)) { inputY = -1; inputX = 0; }
             else if (Gdx.input.isKeyPressed(Keys.A)) { inputX = -1; inputY = 0; }
@@ -146,18 +180,16 @@ public class GameScreen implements Screen {
 
         player.setVelocity(inputX * speed, inputY * speed);
         player.update(delta);
-        player.setPosition(oldX, oldY);
 
-        float moveAmount = speed * delta;
-        if (inputX != 0) {
-            float nextX = oldX + (inputX * moveAmount);
-            if (isValidPosition(nextX, oldY)) player.setPosition(nextX, oldY);
+        // Simple Collision Logic with Obstacles
+        if (inputX != 0 || inputY != 0) {
+            if (!isValidPosition(player.getPositionX(), player.getPositionY())) {
+                player.setPosition(oldX, oldY);
+            }
         }
-        if (inputY != 0) {
-            float currentX = player.getPositionX();
-            float nextY = oldY + (inputY * moveAmount);
-            if (isValidPosition(currentX, nextY)) player.setPosition(currentX, nextY);
-        }
+
+        // --- CEK AMBIL ITEM ---
+        checkItemCollisions();
 
         if (mainCheckpoint.isActivated()) exitPortal.update(delta);
         camera.update();
@@ -177,8 +209,25 @@ public class GameScreen implements Screen {
         }
     }
 
+    // Logika tabrakan dengan item
+    private void checkItemCollisions() {
+        for (int i = itemList.size - 1; i >= 0; i--) {
+            Item item = itemList.get(i);
+            // Gunakan hitbox item 50x50
+            if (player.getBounds().overlaps(new Rectangle(item.getX(), item.getY(), 50, 50))) {
+                if (item.getType().equals("FRUIT")) {
+                    HealthManager.getInstance().consumeFood(20); // Tambah Lapar
+                } else if (item.getType().equals("WATER")) {
+                    HealthManager.getInstance().consumeWater(20); // Tambah Haus
+                }
+                // Hapus item dari layar setelah diambil
+                itemList.removeIndex(i);
+            }
+        }
+    }
+
     private boolean isValidPosition(float x, float y) {
-        Rectangle futureHitbox = new Rectangle(x + HITBOX_OFFSET_X, y, HITBOX_WIDTH, HITBOX_HEIGHT);
+        Rectangle futureHitbox = new Rectangle(x + 60f, y, 60, 40);
         for (Rectangle obstacle : obstacles) {
             if (futureHitbox.overlaps(obstacle)) return false;
         }
@@ -195,6 +244,12 @@ public class GameScreen implements Screen {
         game.getBatch().begin();
 
         game.getBatch().draw(gameWorldTexture, 0, 0, WORLD_WIDTH, WORLD_HEIGHT);
+
+        // --- GAMBAR ITEM ---
+        for (Item item : itemList) {
+            game.getBatch().draw(item.getTexture(), item.getX(), item.getY(), 50, 50);
+        }
+
         game.getBatch().draw(mainCheckpoint.getTextureRegion(), 600, 350, 192, 192);
 
         if (mainCheckpoint.isActivated()) {
@@ -224,5 +279,7 @@ public class GameScreen implements Screen {
 
     @Override public void resize(int width, int height) { viewport.update(width, height); }
     @Override public void dispose() { uiStage.dispose(); shapeRenderer.dispose(); }
-    @Override public void pause() {} @Override public void resume() {} @Override public void hide() {}
+    @Override public void pause() {}
+    @Override public void resume() {}
+    @Override public void hide() {}
 }
