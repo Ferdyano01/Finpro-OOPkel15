@@ -1,17 +1,23 @@
 package com.Ferdyano.frontend.Screen;
 
 import com.Ferdyano.frontend.TheLostKeyGame;
+import com.Ferdyano.frontend.Managers.HealthManager;
+import com.Ferdyano.frontend.Managers.InventoryManager;
+import com.Ferdyano.frontend.network.BackendFacade;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Screen;
-import com.badlogic.gdx.audio.Music; // <--- IMPORT BARU
+import com.badlogic.gdx.audio.Music;
 import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.scenes.scene2d.Stage;
 import com.badlogic.gdx.scenes.scene2d.ui.Skin;
 import com.badlogic.gdx.scenes.scene2d.ui.Table;
 import com.badlogic.gdx.scenes.scene2d.ui.TextButton;
+import com.badlogic.gdx.scenes.scene2d.ui.TextField;
 import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
 import com.badlogic.gdx.scenes.scene2d.InputEvent;
 import com.badlogic.gdx.scenes.scene2d.ui.Label;
+import com.badlogic.gdx.utils.JsonReader;
+import com.badlogic.gdx.utils.JsonValue;
 import com.badlogic.gdx.utils.viewport.FitViewport;
 
 /**
@@ -25,6 +31,7 @@ public class MainMenuScreen implements Screen {
 
     // Variabel untuk musik
     private Music bgMusic;
+    private TextField nameInput;
 
     public MainMenuScreen(TheLostKeyGame game) {
         this.game = game;
@@ -60,16 +67,51 @@ public class MainMenuScreen implements Screen {
         Label title = new Label("THE LOST KEY", skin, "default");
         table.add(title).padBottom(50).row();
 
+        table.add(new Label("Masukkan Nama:", skin)).padBottom(5).row();
+        nameInput = new TextField("", skin);
+        nameInput.setMessageText("Username...");
+        table.add(nameInput).width(300).height(40).padBottom(20).row();
+
         // 2. Tombol "Mulai Petualangan Baru"
         TextButton newGameButton = new TextButton("START NEW ADVENTURE", skin);
         newGameButton.addListener(new ClickListener() {
             @Override
             public void clicked(InputEvent event, float x, float y) {
-                // OPSI: Jika ingin musik BERHENTI saat masuk game, hilangkan tanda komentar di bawah ini:
-                // if (bgMusic != null) bgMusic.stop();
+                String username = nameInput.getText();
+                if (username.trim().isEmpty()) return;
 
-                // Pindah ke GameScreen
-                game.setScreen(new GameScreen(game));
+                BackendFacade.getInstance().registerOrLogin(username, new BackendFacade.NetworkCallback() {
+                    @Override
+                    public void onSuccess(String response) {
+                        JsonValue root = new JsonReader().parse(response);
+
+                        if (root.has("health")) {
+                            JsonValue h = root.get("health");
+                            HealthManager.getInstance().setValues(
+                                    h.getInt("currentHp"),
+                                    h.getInt("hungerLevel"),
+                                    h.getInt("thirstLevel")
+                            );
+                        }
+
+                        if (root.has("inventory")) {
+                            InventoryManager.getInstance().setFoodCount(
+                                    root.get("inventory").getInt("foodCount")
+                            );
+                        }
+
+                        // OPSI: Jika ingin musik BERHENTI saat masuk game, hilangkan tanda komentar di bawah ini:
+                        // if (bgMusic != null) bgMusic.stop();
+
+                        // Pindah ke GameScreen
+                        game.setScreen(new GameScreen(game));
+                    }
+
+                    @Override
+                    public void onFailure(String error) {
+                        System.out.println("Login Failed: " + error);
+                    }
+                });
             }
         });
         table.add(newGameButton).width(300).height(60).pad(10).row();

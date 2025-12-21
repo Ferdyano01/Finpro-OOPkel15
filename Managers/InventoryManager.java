@@ -43,6 +43,11 @@ public class InventoryManager {
     }
 
     // --- Data Manipulation Methods ---
+    
+    public void setFoodCount(int count) {
+        this.foodCount = count;
+        notifyObservers();
+    }
 
     /** Dipanggil saat pemain mengambil makanan baru. */
     public void addFood(int amount) {
