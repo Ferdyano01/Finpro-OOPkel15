@@ -1,58 +1,73 @@
 package com.Ferdyano.frontend.ui;
 
+import com.Ferdyano.frontend.TheLostKeyGame;
+import com.Ferdyano.frontend.Screen.MainMenuScreen;
 import com.Ferdyano.frontend.pattern.HealthObserver;
 import com.Ferdyano.frontend.pattern.SurvivalObserver;
 import com.Ferdyano.frontend.Managers.HealthManager;
+import com.badlogic.gdx.Gdx;
+import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.scenes.scene2d.ui.Table;
 import com.badlogic.gdx.scenes.scene2d.ui.Label;
 import com.badlogic.gdx.scenes.scene2d.ui.ProgressBar;
 import com.badlogic.gdx.scenes.scene2d.ui.Skin;
+import com.badlogic.gdx.scenes.scene2d.ui.TextButton;
+import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
+import com.badlogic.gdx.scenes.scene2d.InputEvent;
 
-/**
- * SurvivalHud: Menampilkan data HP, Lapar, dan Haus.
- * Mendaftarkan diri sebagai Observer ke HealthManager.
- */
 public class SurvivalHud extends Table implements HealthObserver, SurvivalObserver {
 
     private final Label hpLabel;
-    private final ProgressBar hpBar;
-    private final ProgressBar hungerBar;
-    private final ProgressBar thirstBar;
+    private final ProgressBar hpBar, hungerBar, thirstBar;
 
-    // KOREKSI UTAMA: Konstruktor HANYA menerima Skin
-    public SurvivalHud(Skin skin) {
+    public SurvivalHud(Skin skin, final TheLostKeyGame game) {
+        super(skin);
+        this.setFillParent(true);
+        this.top().left().pad(20);
 
-        // --- 1. INISIALISASI KOMPONEN DI DALAM KELAS ---
-        this.hpLabel = new Label("HP: 100/100", skin);
-        // Asumsi style ProgressBar horizontal ada di skin
-        this.hpBar = new ProgressBar(0, 100, 1, false, skin);
-        this.hungerBar = new ProgressBar(0, 100, 1, false, skin);
-        this.thirstBar = new ProgressBar(0, 100, 1, false, skin);
+        // Inisialisasi Bar dengan warna manual agar PASTI terlihat
+        this.hpBar = createColoredBar(skin, Color.RED);
+        this.hungerBar = createColoredBar(skin, Color.ORANGE);
+        this.thirstBar = createColoredBar(skin, Color.CYAN);
 
-        // --- 2. SETUP LAYOUT SCENE2D (Menggunakan Table) ---
-        top().left(); // Posisikan HUD di kiri atas
-        pad(10);
-
-        // Baris HP
-        add(hpLabel).left();
-        add(hpBar).width(150).height(20).padLeft(10).row();
-
-        // Baris Survival
-        add(new Label("Lapar", skin)).left();
-        add(hungerBar).width(150).height(10).padLeft(10).row();
-
-        add(new Label("Haus", skin)).left();
-        add(thirstBar).width(150).height(10).padLeft(10).row();
-
-
-        // --- 3. Pendaftaran Observer ---
         HealthManager manager = HealthManager.getInstance();
+        this.hpLabel = new Label("HP: " + manager.getHealth() + "/100", skin);
+        TextButton menuBtn = new TextButton("MENU", skin);
+
+        menuBtn.addListener(new ClickListener() {
+            @Override
+            public void clicked(InputEvent event, float x, float y) {
+                HealthManager.getInstance().clearObservers();
+                game.setScreen(new MainMenuScreen(game));
+            }
+        });
+
+        // Susun UI
+        add(new Label("HP", skin)).left();
+        add(hpBar).width(200).padLeft(10);
+        add(hpLabel).padLeft(10).row();
+
+        add(new Label("LAPAR", skin)).left().padTop(5);
+        add(hungerBar).width(200).padLeft(10).padTop(5).row();
+
+        add(new Label("HAUS", skin)).left().padTop(5);
+        add(thirstBar).width(200).padLeft(10).padTop(5).row();
+
+        add(menuBtn).padTop(15).colspan(3).left();
+
+        // Daftar ke Manager
         manager.registerHealthObserver(this);
         manager.registerSurvivalObserver(this);
-        System.out.println("SurvivalHud berhasil mendaftar ke HealthManager.");
     }
 
-    // ... (Metode updateObserver tetap sama)
+    // Helper untuk membuat bar berwarna
+    private ProgressBar createColoredBar(Skin skin, Color color) {
+        ProgressBar bar = new ProgressBar(0, 100, 1, false, skin);
+        bar.setValue(100);
+        bar.setColor(color); // Memaksa tint warna
+        return bar;
+    }
+
     @Override
     public void updateHealth(int currentHp, int maxHp) {
         hpBar.setValue(currentHp);
@@ -64,6 +79,4 @@ public class SurvivalHud extends Table implements HealthObserver, SurvivalObserv
         hungerBar.setValue(currentHunger);
         thirstBar.setValue(currentThirst);
     }
-
-    // ... Metode LibGDX lain (draw, act, dll)
 }

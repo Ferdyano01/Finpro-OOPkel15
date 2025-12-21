@@ -3,78 +3,46 @@ package com.Ferdyano.frontend.core;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.TextureRegion;
 import com.badlogic.gdx.math.Vector2;
-import com.badlogic.gdx.Gdx; // Diperlukan untuk mengakses waktu (delta)
 
 public class Portal {
-
     private final Vector2 position;
-    private final float width;
-    private final float height;
-
     private final TextureRegion frameRegion;
+
+    // Hapus Animation, ganti dengan TextureRegion tunggal untuk efek
     private final TextureRegion effectRegion;
 
-    // --- LOGIKA SCALING BARU ---
-    private float time;
-    private float currentScale;
-    private static final float PULSE_SPEED = 2.0f;  // Kecepatan denyutan
-    private static final float MIN_SCALE = 0.6f;    // Skala minimum efek (60% dari P_WIDTH)
-    private static final float MAX_SCALE = 0.8f;    // Skala maksimum efek (80% dari P_WIDTH)
-    // ----------------------------
+    private float scaleTimer;
 
-    // KOREKSI 1: Gunakan 64x64 sebagai dimensi dasar portal
-    private static final float P_WIDTH = 32f;
-    private static final float P_HEIGHT = 32f;
-
+    // Constructor diubah: effectTexture bukan lagi spritesheet, tapi gambar tunggal
     public Portal(Texture frameTexture, Texture effectTexture, float x, float y) {
         this.position = new Vector2(x, y);
-        this.width = P_WIDTH;
-        this.height = P_HEIGHT;
+        this.frameRegion = new TextureRegion(frameTexture);
 
-        // Inisialisasi variabel baru
-        this.time = 0f;
-        this.currentScale = MIN_SCALE;
-
-        this.frameRegion = new TextureRegion(frameTexture, 0, 0, (int)P_WIDTH, (int)P_HEIGHT);
-        this.effectRegion = new TextureRegion(effectTexture, 0, 0, (int)P_WIDTH, (int)P_HEIGHT);
+        // Gunakan seluruh gambar effectTexture sebagai satu region statis
+        this.effectRegion = new TextureRegion(effectTexture);
     }
 
     public void update(float delta) {
-        // KOREKSI 2: Logika Scaling (Berdenyut)
-        time += delta * PULSE_SPEED;
-
-        // Menggunakan fungsi sinus untuk mendapatkan nilai antara -1 dan 1
-        float sinValue = (float)Math.sin(time);
-
-        // Memetakan nilai sin ke rentang skala (MIN_SCALE hingga MAX_SCALE)
-        float range = (MAX_SCALE - MIN_SCALE);
-        currentScale = MIN_SCALE + (range * (sinValue + 1) / 2f);
-    }
-
-    // --- GETTERS KRITIS ---
-    public Vector2 getPosition() {
-        return position;
-    }
-
-    public float getWidth() {
-        return width;
-    }
-
-    public float getHeight() {
-        return height;
-    }
-
-    // --- GETTERS REGION & SCALE BARU ---
-    public TextureRegion getFrameRegion() {
-        return frameRegion;
+        // Timer ini digunakan untuk menghitung skala denyutan
+        scaleTimer += delta;
     }
 
     public TextureRegion getEffectRegion() {
+        // Cukup kembalikan region gambar statis tadi
         return effectRegion;
     }
 
-    // KOREKSI 3: Ganti getRotation() menjadi getCurrentScale()
+    public TextureRegion getFrameTexture() {
+        return frameRegion;
+    }
+
+    // Fungsi ini yang membuat efek "berdenyut" dengan mengubah nilai skala
     public float getCurrentScale() {
-        return currentScale;
+        // Skala berayun antara 0.9 (mengecil) dan 1.1 (membesar)
+        return 1.0f + (float)Math.sin(scaleTimer * 5f) * 0.1f;
+    }
+
+    public Vector2 getPosition() {
+        return position;
     }
 }

@@ -86,3 +86,4 @@ public class InventoryBar extends Table implements InventoryObserver {
         }
     }
 }
+

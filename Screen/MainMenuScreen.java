@@ -3,6 +3,7 @@ package com.Ferdyano.frontend.Screen;
 import com.Ferdyano.frontend.TheLostKeyGame;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Screen;
+import com.badlogic.gdx.audio.Music; // <--- IMPORT BARU
 import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.scenes.scene2d.Stage;
 import com.badlogic.gdx.scenes.scene2d.ui.Skin;
@@ -22,34 +23,40 @@ public class MainMenuScreen implements Screen {
     private final Stage stage;
     private final Skin skin;
 
+    // Variabel untuk musik
+    private Music bgMusic;
+
     public MainMenuScreen(TheLostKeyGame game) {
         this.game = game;
-
-        // --- KOREKSI KRITIS DI SINI ---
-        // MASALAH: Baris ini menyebabkan crash karena aset ui/custom_skin.json tidak dimuat:
-        // this.skin = game.getAssetManager().get("ui/custom_skin.json", Skin.class);
-
-        // SOLUSI: Ambil Fallback Skin (Skin yang dibuat di kode) dari TheLostKeyGame
         this.skin = game.getSkin();
-        // -----------------------------
-
-        // Menggunakan FitViewport untuk memastikan menu terlihat baik di berbagai resolusi
         this.stage = new Stage(new FitViewport(1280, 720), game.getBatch());
+
+        // --- LOGIKA MUSIK DI SINI ---
+        // Cek apakah music.wav sudah dimuat oleh AssetManager di TheLostKeyGame
+        if (game.getAssetManager().isLoaded("music.wav")) {
+            // Ambil file musiknya
+            bgMusic = game.getAssetManager().get("music.wav", Music.class);
+
+            // Set agar musik mengulang terus (Looping)
+            bgMusic.setLooping(true);
+
+            // Set Volume (0.0f sampai 1.0f). Ubah jika terlalu keras/pelan.
+            bgMusic.setVolume(0.5f);
+
+            // Mainkan musik jika belum main
+            if (!bgMusic.isPlaying()) {
+                bgMusic.play();
+            }
+        }
 
         buildMenuTable();
     }
 
-    /** * Metode untuk menyusun tata letak menu utama menggunakan Scene2D Table.
-     */
     private void buildMenuTable() {
-        // Buat Table sebagai wadah utama yang mengisi seluruh Stage
-        // Catatan: Karena menggunakan Fallback Skin, semua elemen (tombol, label) akan terlihat polos.
         Table table = new Table(skin);
         table.setFillParent(true);
-        // table.setDebug(true);
 
         // 1. Judul Game
-        // Asumsi: Style "title" ada di Fallback Skin (walaupun hanya menggunakan default font)
         Label title = new Label("THE LOST KEY", skin, "default");
         table.add(title).padBottom(50).row();
 
@@ -58,17 +65,16 @@ public class MainMenuScreen implements Screen {
         newGameButton.addListener(new ClickListener() {
             @Override
             public void clicked(InputEvent event, float x, float y) {
-                // Aksi PENTING: Pindah ke GameScreen
+                // OPSI: Jika ingin musik BERHENTI saat masuk game, hilangkan tanda komentar di bawah ini:
+                // if (bgMusic != null) bgMusic.stop();
+
+                // Pindah ke GameScreen
                 game.setScreen(new GameScreen(game));
             }
         });
         table.add(newGameButton).width(300).height(60).pad(10).row();
 
-        // 3. Tombol "Lanjutkan"
-        TextButton continueButton = new TextButton("LOAD CHECKPOINT", skin);
-        table.add(continueButton).width(300).height(60).pad(10).row();
-
-        // 4. Tombol "Keluar"
+        // 3. Tombol "Keluar"
         TextButton exitButton = new TextButton("EXIT", skin);
         exitButton.addListener(new ClickListener() {
             @Override
@@ -78,15 +84,17 @@ public class MainMenuScreen implements Screen {
         });
         table.add(exitButton).width(300).height(60).pad(10).row();
 
-        // Tambahkan table ke Stage
         stage.addActor(table);
     }
-
-    // --- Siklus Hidup LibGDX ---
 
     @Override
     public void show() {
         Gdx.input.setInputProcessor(stage);
+
+        // Pastikan musik main lagi kalau kembali ke menu ini
+        if (bgMusic != null && !bgMusic.isPlaying()) {
+            bgMusic.play();
+        }
     }
 
     @Override
@@ -113,5 +121,6 @@ public class MainMenuScreen implements Screen {
     @Override
     public void dispose() {
         stage.dispose();
+        // Musik tidak perlu didispose di sini karena dikelola oleh AssetManager global
     }
 }

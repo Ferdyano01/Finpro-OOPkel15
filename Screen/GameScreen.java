@@ -3,101 +3,97 @@ package com.Ferdyano.frontend.Screen;
 import com.Ferdyano.frontend.TheLostKeyGame;
 import com.Ferdyano.frontend.Managers.HealthManager;
 import com.Ferdyano.frontend.core.Player;
-import com.Ferdyano.frontend.ui.GameUI;
+import com.Ferdyano.frontend.ui.SurvivalHud;
 import com.badlogic.gdx.Gdx;
+import com.badlogic.gdx.InputMultiplexer;
 import com.badlogic.gdx.Screen;
+import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.graphics.OrthographicCamera;
 import com.badlogic.gdx.graphics.Texture;
-import com.badlogic.gdx.scenes.scene2d.ui.Skin;
-import com.badlogic.gdx.utils.viewport.FitViewport;
-import com.badlogic.gdx.utils.viewport.Viewport;
-import com.badlogic.gdx.Input.Keys;
-import com.badlogic.gdx.graphics.Color;
-import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.graphics.g2d.TextureRegion;
-
-import com.Ferdyano.frontend.core.Checkpoint;
-import com.Ferdyano.frontend.core.Portal;
+import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
+import com.badlogic.gdx.math.Rectangle;
+import com.badlogic.gdx.scenes.scene2d.Stage;
 import com.badlogic.gdx.scenes.scene2d.ui.Label;
 import com.badlogic.gdx.scenes.scene2d.ui.TextButton;
 import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
 import com.badlogic.gdx.scenes.scene2d.InputEvent;
-
-// IMPORT BARU: Tujuan transisi level
-import com.Ferdyano.frontend.Screen.LevelDuaScreen;
-// Hapus import MainMenuScreen jika tidak diperlukan lagi
-import com.Ferdyano.frontend.Screen.MainMenuScreen;
-
+import com.badlogic.gdx.utils.Array;
+import com.badlogic.gdx.utils.viewport.FitViewport;
+import com.badlogic.gdx.Input.Keys;
+import com.badlogic.gdx.math.Vector2;
+import com.Ferdyano.frontend.core.Checkpoint;
+import com.Ferdyano.frontend.core.Portal;
 
 public class GameScreen implements Screen {
-
     private final TheLostKeyGame game;
     private final OrthographicCamera camera;
-    private final Viewport viewport;
+    private final FitViewport viewport;
+    private final Stage uiStage;
 
     private final Player player;
-    private final GameUI gameUI;
+    private final SurvivalHud survivalHud;
 
-    // --- VARIABEL ASET ---
     private final Texture gameWorldTexture;
-    private final Texture playerRunDownSheet;
-    private final Texture playerRunUpSheet;
-    private final Texture playerRunLeftSheet;
-    private final Texture playerRunRightSheet;
-    private final Texture checkpointTexture;
-
-    private final Texture portalFrameTexture;
-    private final Texture portalEffectTexture;
-
-    // --- LOGIKA GAME ---
     private final Checkpoint mainCheckpoint;
     private final Portal exitPortal;
+
     private boolean isQuestionActive = false;
     private final Label questionLabel;
-    private final TextButton yesButton;
-    private final TextButton noButton;
+    private final TextButton yesButton, noButton;
 
+    private final Array<Rectangle> obstacles = new Array<>();
+    private final ShapeRenderer shapeRenderer;
+    private final boolean DEBUG_MODE = false;
+
+    private final float WORLD_WIDTH = 1300f;
+    private final float WORLD_HEIGHT = 720f;
+    private final float PLAYER_SCALE = 3.5f;
+
+    private final float HITBOX_WIDTH = 60f;
+    private final float HITBOX_HEIGHT = 40f;
+    private final float HITBOX_OFFSET_X = 60f;
 
     public GameScreen(TheLostKeyGame game) {
         this.game = game;
-
         this.camera = new OrthographicCamera();
-        this.camera.setToOrtho(false, 1280, 720);
-        this.viewport = new FitViewport(1280, 720, camera);
+        this.viewport = new FitViewport(WORLD_WIDTH, WORLD_HEIGHT, camera);
+        this.uiStage = new Stage(viewport, game.getBatch());
+        this.shapeRenderer = new ShapeRenderer();
 
-        // 2. Inisialisasi Aset dari AssetManager
         this.gameWorldTexture = game.getAssetManager().get("background.png", Texture.class);
-        this.playerRunDownSheet = game.getAssetManager().get("run_down.png", Texture.class);
-        this.playerRunUpSheet = game.getAssetManager().get("run_up.png", Texture.class);
-        this.playerRunLeftSheet = game.getAssetManager().get("run_left.png", Texture.class);
-        this.playerRunRightSheet = game.getAssetManager().get("run_right.png", Texture.class);
-        this.checkpointTexture = game.getAssetManager().get("SleepDog.png", Texture.class);
 
-        this.portalFrameTexture = game.getAssetManager().get("portal_frame.png", Texture.class);
-        this.portalEffectTexture = game.getAssetManager().get("portal_effect.png", Texture.class);
+        this.player = new Player(
+            game.getAssetManager().get("run_down.png", Texture.class),
+            game.getAssetManager().get("run_up.png", Texture.class),
+            game.getAssetManager().get("run_left.png", Texture.class),
+            game.getAssetManager().get("run_right.png", Texture.class),
+            game.getAssetManager().get("idle.png", Texture.class)
+        );
 
+        player.setPosition(600f, 250f);
+        createObstacles();
 
-        // 3. Inisialisasi Entitas
-        this.player = new Player(playerRunDownSheet, playerRunUpSheet, playerRunLeftSheet, playerRunRightSheet);
-        player.setPosition(100f, 100f);
+        this.mainCheckpoint = new Checkpoint(game.getAssetManager().get("SleepDog.png", Texture.class), 600f, 350f);
+        this.exitPortal = new Portal(
+            game.getAssetManager().get("portal_frame.png", Texture.class),
+            game.getAssetManager().get("portal_effect.png", Texture.class),
+            900f, 500f
+        );
 
-        this.mainCheckpoint = new Checkpoint(checkpointTexture, 600f, 350f);
+        this.survivalHud = new SurvivalHud(game.getSkin(), game);
+        this.uiStage.addActor(survivalHud);
 
-        this.exitPortal = new Portal(portalFrameTexture, portalEffectTexture, 900f, 500f);
-
-        // ... (Inisialisasi UI, Label, dan Tombol) ...
-        Skin gameSkin = game.getSkin();
-        this.gameUI = new GameUI(viewport, gameSkin);
-        this.questionLabel = new Label("APAKAH ANJING INI ANJING TIDUR?", gameSkin, "default");
-        questionLabel.setFontScale(1.5f);
-        questionLabel.setPosition(1280 / 2 - questionLabel.getWidth() / 2, 720 / 2 + 50);
+        this.questionLabel = new Label("APAKAH ANJING INI ANJING TIDUR?", game.getSkin());
+        questionLabel.setPosition(WORLD_WIDTH / 2 - questionLabel.getWidth()/2, 400);
         questionLabel.setVisible(false);
+        uiStage.addActor(questionLabel);
 
-        this.yesButton = new TextButton("Ya", gameSkin);
-        this.noButton = new TextButton("Tidak", gameSkin);
-        yesButton.setBounds(1280 / 2 - 170, 720 / 2 - 50, 150, 40);
-        noButton.setBounds(1280 / 2 + 20, 720 / 2 - 50, 150, 40);
+        this.yesButton = new TextButton("Ya", game.getSkin());
+        this.noButton = new TextButton("Tidak", game.getSkin());
+        yesButton.setSize(100, 50); noButton.setSize(100, 50);
+        yesButton.setVisible(false); noButton.setVisible(false);
 
         yesButton.addListener(new ClickListener() {
             @Override public void clicked(InputEvent event, float x, float y) { handleAnswer(true); }
@@ -105,175 +101,128 @@ public class GameScreen implements Screen {
         noButton.addListener(new ClickListener() {
             @Override public void clicked(InputEvent event, float x, float y) { handleAnswer(false); }
         });
+
+        uiStage.addActor(yesButton);
+        uiStage.addActor(noButton);
+    }
+
+    private void createObstacles() {
+        obstacles.add(new Rectangle(0, 690, 1300, 30));
+        obstacles.add(new Rectangle(0, 0, 1300, 20));
+        obstacles.add(new Rectangle(1260, 0, 40, 720));
+        obstacles.add(new Rectangle(20, 0, 20, 720));
     }
 
     private void handleAnswer(boolean isYes) {
-        if (isYes) {
-            mainCheckpoint.activate();
-            Gdx.app.log("CHECKPOINT", "Jawaban Benar! Portal Sekarang Tersedia.");
-        } else {
-            Gdx.app.log("CHECKPOINT", "Jawaban Salah!");
-        }
-
+        if (isYes) mainCheckpoint.activate();
         isQuestionActive = false;
         questionLabel.setVisible(false);
-        Gdx.input.setInputProcessor(gameUI.getStage());
+        yesButton.setVisible(false);
+        noButton.setVisible(false);
     }
-
 
     @Override
     public void show() {
-        Gdx.input.setInputProcessor(gameUI.getStage());
-        HealthManager.getInstance().changeHealth(0);
-
-        playerRunDownSheet.setFilter(Texture.TextureFilter.Nearest, Texture.TextureFilter.Nearest);
-        playerRunUpSheet.setFilter(Texture.TextureFilter.Nearest, Texture.TextureFilter.Nearest);
-        playerRunLeftSheet.setFilter(Texture.TextureFilter.Nearest, Texture.TextureFilter.Nearest);
-        playerRunRightSheet.setFilter(Texture.TextureFilter.Nearest, Texture.TextureFilter.Nearest);
-
-        portalFrameTexture.setFilter(Texture.TextureFilter.Nearest, Texture.TextureFilter.Nearest);
-        portalEffectTexture.setFilter(Texture.TextureFilter.Nearest, Texture.TextureFilter.Nearest);
+        InputMultiplexer multiplexer = new InputMultiplexer();
+        multiplexer.addProcessor(uiStage);
+        Gdx.input.setInputProcessor(multiplexer);
     }
 
     private void update(float delta) {
-        float speed = 200f;
-        float dx = 0;
-        float dy = 0;
-
-        if (!isQuestionActive) {
-            if (Gdx.input.isKeyPressed(Keys.W) || Gdx.input.isKeyPressed(Keys.UP)) { dy = speed; }
-            else if (Gdx.input.isKeyPressed(Keys.S) || Gdx.input.isKeyPressed(Keys.DOWN)) { dy = -speed; }
-            if (Gdx.input.isKeyPressed(Keys.A) || Gdx.input.isKeyPressed(Keys.LEFT)) { dx = -speed; }
-            else if (Gdx.input.isKeyPressed(Keys.D) || Gdx.input.isKeyPressed(Keys.RIGHT)) { dx = speed; }
-        }
-        player.setVelocity(dx, dy);
-
-        camera.update();
-        player.update(delta);
         HealthManager.getInstance().update(delta);
 
-        if (mainCheckpoint.isActivated()) {
-            exitPortal.update(delta);
+        float oldX = player.getPositionX();
+        float oldY = player.getPositionY();
+        float inputX = 0;
+        float inputY = 0;
+        float speed = 200f;
+
+        if (!isQuestionActive) {
+            if (Gdx.input.isKeyPressed(Keys.W)) { inputY = 1; inputX = 0; }
+            else if (Gdx.input.isKeyPressed(Keys.S)) { inputY = -1; inputX = 0; }
+            else if (Gdx.input.isKeyPressed(Keys.A)) { inputX = -1; inputY = 0; }
+            else if (Gdx.input.isKeyPressed(Keys.D)) { inputX = 1; inputY = 0; }
         }
 
-        // LOGIKA COLLISION CHECKPOINT
-        if (!mainCheckpoint.isActivated() && !isQuestionActive) {
-            float playerCenterX = player.getPositionX() + player.getWidth() * 3 / 2f;
-            float playerCenterY = player.getPositionY() + player.getHeight() * 3 / 2f;
-            float cpCenterX = mainCheckpoint.getPosition().x + mainCheckpoint.getWidth() * 3 / 2f;
-            float cpCenterY = mainCheckpoint.getPosition().y + mainCheckpoint.getHeight() * 3 / 2f;
-            float distance = Vector2.dst(playerCenterX, playerCenterY, cpCenterX, cpCenterY);
+        player.setVelocity(inputX * speed, inputY * speed);
+        player.update(delta);
+        player.setPosition(oldX, oldY);
 
-            if (distance < 100) {
+        float moveAmount = speed * delta;
+        if (inputX != 0) {
+            float nextX = oldX + (inputX * moveAmount);
+            if (isValidPosition(nextX, oldY)) player.setPosition(nextX, oldY);
+        }
+        if (inputY != 0) {
+            float currentX = player.getPositionX();
+            float nextY = oldY + (inputY * moveAmount);
+            if (isValidPosition(currentX, nextY)) player.setPosition(currentX, nextY);
+        }
+
+        if (mainCheckpoint.isActivated()) exitPortal.update(delta);
+        camera.update();
+
+        if (!mainCheckpoint.isActivated() && !isQuestionActive) {
+            if (Vector2.dst(player.getPositionX(), player.getPositionY(), 600, 350) < 100) {
                 isQuestionActive = true;
                 questionLabel.setVisible(true);
-                gameUI.getStage().addActor(yesButton);
-                noButton.remove();
-                gameUI.getStage().addActor(noButton);
+                yesButton.setVisible(true); yesButton.setPosition(500, 300);
+                noButton.setVisible(true); noButton.setPosition(650, 300);
             }
         }
-
-        // LOGIKA COLLISION PORTAL
         if (mainCheckpoint.isActivated()) {
-            float playerCenterX = player.getPositionX() + player.getWidth() * 3 / 2f;
-            float playerCenterY = player.getPositionY() + player.getHeight() * 3 / 2f;
-            float portalCenterX = exitPortal.getPosition().x + exitPortal.getWidth() * 3 / 2f;
-            float portalCenterY = exitPortal.getPosition().y + exitPortal.getHeight() * 3 / 2f;
-            float distanceToPortal = Vector2.dst(playerCenterX, playerCenterY, portalCenterX, portalCenterY);
-
-            if (distanceToPortal < 100) {
-                Gdx.app.log("PORTAL", "Memuat Level Baru...");
-                // KOREKSI UTAMA: Ganti transisi ke LevelDuaScreen
+            if (Vector2.dst(player.getPositionX(), player.getPositionY(), exitPortal.getPosition().x, exitPortal.getPosition().y) < 80) {
                 game.setScreen(new LevelDuaScreen(game));
             }
         }
+    }
 
-        if (!isQuestionActive) {
-            yesButton.remove();
-            noButton.remove();
+    private boolean isValidPosition(float x, float y) {
+        Rectangle futureHitbox = new Rectangle(x + HITBOX_OFFSET_X, y, HITBOX_WIDTH, HITBOX_HEIGHT);
+        for (Rectangle obstacle : obstacles) {
+            if (futureHitbox.overlaps(obstacle)) return false;
         }
+        return true;
     }
 
     @Override
     public void render(float delta) {
-
         Gdx.gl.glClearColor(0.2f, 0.2f, 0.2f, 1);
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
-
         update(delta);
 
         game.getBatch().setProjectionMatrix(camera.combined);
         game.getBatch().begin();
 
-        game.getBatch().draw(gameWorldTexture, 0, 0, 1280, 720);
+        game.getBatch().draw(gameWorldTexture, 0, 0, WORLD_WIDTH, WORLD_HEIGHT);
+        game.getBatch().draw(mainCheckpoint.getTextureRegion(), 600, 350, 192, 192);
 
-        // RENDER CHECKPOINT
-        game.getBatch().draw(
-            mainCheckpoint.getTextureRegion(),
-            mainCheckpoint.getPosition().x,
-            mainCheckpoint.getPosition().y,
-            mainCheckpoint.getWidth() * 3,
-            mainCheckpoint.getHeight() * 3
-        );
-
-        // KOREKSI 2: RENDER PORTAL (Hanya Efek Berdenyut)
         if (mainCheckpoint.isActivated()) {
-
-            // --- VARIABEL DASAR PORTAL (Frame 64x64, Skala 3x) ---
-            float totalWidth = exitPortal.getWidth() * 3;
-            float totalHeight = exitPortal.getHeight() * 3;
-            float baseX = exitPortal.getPosition().x;
-            float baseY = exitPortal.getPosition().y;
-
-            // --- VARIABEL EFEK BERDENYUT (Menggunakan getCurrentScale) ---
-            float currentScale = exitPortal.getCurrentScale(); // Ambil skala dinamis dari Portal.java
-
-            float effectW = totalWidth * currentScale;
-            float effectH = totalHeight * currentScale;
-
-            // Hitung posisi baru (x_effect, y_effect) agar efek yang lebih kecil tetap di pusat frame
-            float effectX = baseX + (totalWidth - effectW) / 2f;
-            float effectY = baseY + (totalHeight - effectH) / 2f;
-
-            // 6b. Render HANYA EFEK BERDENYUT (Layer Atas)
-            game.getBatch().draw(
-                exitPortal.getEffectRegion(), // Gunakan Effect Region
-                effectX, effectY, // Posisi agar berada di pusat tempat frame portal seharusnya
-                effectW / 2f, effectH / 2f, // Origin harus di pusat Efek
-                effectW, effectH,
-                1, 1,
-                0 // Rotasi 0 (Non-rotasi)
-            );
+            float scale = exitPortal.getCurrentScale();
+            float effectSize = 150f * scale;
+            game.getBatch().draw(exitPortal.getEffectRegion(), 900 + (48-effectSize)/2, 500 + (48-effectSize)/2, effectSize, effectSize);
         }
 
-
-        // RENDERING PLAYER DENGAN SKALA 3X
-        game.getBatch().setColor(Color.WHITE);
-        game.getBatch().draw(
-            player.getCurrentFrame(),
-            player.getPositionX(),
-            player.getPositionY(),
-            player.getWidth() * 3 ,
-            player.getHeight() * 3
-        );
+        TextureRegion currentFrame = player.getCurrentFrame();
+        float drawWidth = currentFrame.getRegionWidth() * PLAYER_SCALE;
+        float drawHeight = currentFrame.getRegionHeight() * PLAYER_SCALE;
+        game.getBatch().draw(currentFrame, player.getPositionX(), player.getPositionY(), drawWidth, drawHeight);
 
         game.getBatch().end();
 
-        // RENDER UI DAN PERTANYAAN
-        gameUI.updateAndDraw(delta);
-
-        if (isQuestionActive) {
-            game.getBatch().setProjectionMatrix(viewport.getCamera().combined);
-            game.getBatch().begin();
-            questionLabel.draw(game.getBatch(), 1f);
-            game.getBatch().end();
+        if (DEBUG_MODE) {
+            shapeRenderer.setProjectionMatrix(camera.combined);
+            shapeRenderer.begin(ShapeRenderer.ShapeType.Line);
+            shapeRenderer.setColor(Color.RED);
+            for (Rectangle r : obstacles) shapeRenderer.rect(r.x, r.y, r.width, r.height);
+            shapeRenderer.end();
         }
+
+        uiStage.act(delta);
+        uiStage.draw();
     }
 
-    // --- METODE SCREEN WAJIB ---
-    @Override public void resize(int width, int height) { viewport.update(width, height, true); gameUI.resize(width, height); }
-    @Override public void pause() { }
-    @Override public void resume() { }
-    @Override public void hide() { }
-    @Override public void dispose() { gameUI.dispose(); }
+    @Override public void resize(int width, int height) { viewport.update(width, height); }
+    @Override public void dispose() { uiStage.dispose(); shapeRenderer.dispose(); }
+    @Override public void pause() {} @Override public void resume() {} @Override public void hide() {}
 }

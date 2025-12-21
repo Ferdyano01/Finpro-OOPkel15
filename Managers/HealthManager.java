@@ -11,96 +11,106 @@ import java.util.List;
  */
 public class HealthManager {
 
-    // --- Singleton Implementation ---
-    private static HealthManager instance = new HealthManager();
+    private static final HealthManager instance = new HealthManager();
 
-    // Konstruktor private mencegah instansiasi dari luar
     private HealthManager() {}
 
-    // Metode akses global untuk mendapatkan satu-satunya instansi
     public static HealthManager getInstance() {
         return instance;
     }
 
-    // --- Data Inti Game State ---
-
     private int currentHp = 100;
     private final int maxHp = 100;
-    private int hungerLevel = 100; // 100 = kenyang (Level ini akan berkurang seiring waktu)
-    private int thirstLevel = 100; // 100 = tidak haus (Level ini akan berkurang seiring waktu)
+    private int hungerLevel = 100;
+    private int thirstLevel = 100;
+    private float timer = 0;
 
-    // --- Observer Lists (Untuk Notifikasi UI) ---
+    // Kecepatan berkurang: 1.5 detik agar perubahan di bar terlihat jelas
+    private static final float DECAY_TIME = 1.5f;
 
     private final List<HealthObserver> healthObservers = new ArrayList<>();
     private final List<SurvivalObserver> survivalObservers = new ArrayList<>();
 
-    // --- Observer Registration Methods ---
-
-    /** Mendaftarkan komponen UI (misalnya SurvivalHud) untuk menerima update HP. */
     public void registerHealthObserver(HealthObserver observer) {
-        healthObservers.add(observer);
-        // Segera update observer baru dengan nilai saat ini
+        if (!healthObservers.contains(observer)) {
+            healthObservers.add(observer);
+        }
         observer.updateHealth(currentHp, maxHp);
     }
 
-    /** Mendaftarkan komponen UI untuk menerima update Lapar/Haus. */
     public void registerSurvivalObserver(SurvivalObserver observer) {
-        survivalObservers.add(observer);
-        // Segera update observer baru dengan nilai saat ini
+        if (!survivalObservers.contains(observer)) {
+            survivalObservers.add(observer);
+        }
         observer.updateSurvivalMeters(hungerLevel, thirstLevel);
     }
 
-    // --- Data Manipulation Methods (Dipanggil oleh Game Logic) ---
+    public void clearObservers() {
+        healthObservers.clear();
+        survivalObservers.clear();
+        System.out.println("HealthManager: Observers cleared.");
+    }
 
-    /** Mengubah HP pemain (positif untuk penyembuhan, negatif untuk damage). */
     public void changeHealth(int delta) {
         currentHp += delta;
-        currentHp = Math.max(0, Math.min(maxHp, currentHp)); // Batasi nilai antara 0 dan 100
-        notifyHealthObservers(); // PENTING: Beri tahu UI
+        currentHp = Math.max(0, Math.min(maxHp, currentHp));
+        notifyHealthObservers();
     }
 
-    /** Mengisi kembali meter Lapar. */
+    // Mengambil Buah menambah Lapar dan HP
     public void consumeFood(int restoreValue) {
-        hungerLevel += restoreValue;
-        hungerLevel = Math.min(100, hungerLevel);
-        notifySurvivalObservers(); // PENTING: Beri tahu UI
+        hungerLevel = Math.min(100, hungerLevel + restoreValue);
+        changeHealth(15); // Ditambah agar HP terasa naik
+        notifySurvivalObservers();
     }
 
-    /** Mengisi kembali meter Haus. */
+    // Mengambil Air menambah Haus dan HP
     public void consumeWater(int restoreValue) {
-        thirstLevel += restoreValue;
-        thirstLevel = Math.min(100, thirstLevel);
-        notifySurvivalObservers(); // PENTING: Beri tahu UI
+        thirstLevel = Math.min(100, thirstLevel + restoreValue);
+        changeHealth(10); // Ditambah agar HP terasa naik
+        notifySurvivalObservers();
     }
 
-    // --- Notifikasi Observer (Pola Observer) ---
-
-    /** Iterasi melalui semua komponen yang tertarik dan memanggil update. */
     private void notifyHealthObservers() {
-        for (HealthObserver observer : healthObservers) {
+        for (HealthObserver observer : new ArrayList<>(healthObservers)) {
             observer.updateHealth(currentHp, maxHp);
         }
     }
 
     private void notifySurvivalObservers() {
-        for (SurvivalObserver observer : survivalObservers) {
+        for (SurvivalObserver observer : new ArrayList<>(survivalObservers)) {
             observer.updateSurvivalMeters(hungerLevel, thirstLevel);
         }
     }
 
-    // --- Game Loop Update ---
-
-    /** Dipanggil di render loop LibGDX untuk pengurangan HP/Survival seiring waktu. */
+    // Method ini harus dipanggil di render() Screen
     public void update(float delta) {
-        // Implementasi logika pengurangan survival di sini
-        // Contoh: Mengurangi level setiap 5 detik
-        // timeSinceLastTick += delta;
-        // if (timeSinceLastTick > 5.0f) {
-        //     hungerLevel--;
-        //     thirstLevel--;
-        //     // ... cek jika < 0 dan kurangi HP
-        //     notifySurvivalObservers();
-        //     notifyHealthObservers();
-        // }
+        timer += delta;
+        if (timer >= DECAY_TIME) {
+            // Berkurang otomatis agar player butuh mencari item
+            hungerLevel = Math.max(0, hungerLevel - 2);
+            thirstLevel = Math.max(0, thirstLevel - 3);
+
+            // Jika Lapar atau Haus habis, HP berkurang drastis
+            if (hungerLevel <= 0 || thirstLevel <= 0) {
+                changeHealth(-5);
+            }
+
+            notifySurvivalObservers();
+            timer = 0;
+        }
     }
+
+    public void resetStatus() {
+        this.currentHp = 100;
+        this.hungerLevel = 100;
+        this.thirstLevel = 100;
+        this.timer = 0;
+        notifyHealthObservers();
+        notifySurvivalObservers();
+    }
+
+    public int getHunger() { return hungerLevel; }
+    public int getThirst() { return thirstLevel; }
+    public int getHealth() { return currentHp; }
 }
