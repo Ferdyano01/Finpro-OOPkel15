@@ -9,7 +9,7 @@ import com.Ferdyano.frontend.ui.SurvivalHud;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.InputMultiplexer;
 import com.badlogic.gdx.Screen;
-import com.badlogic.gdx.graphics.Color; // <--- Import Color
+import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.OrthographicCamera;
@@ -22,7 +22,7 @@ import com.badlogic.gdx.scenes.scene2d.ui.TextButton;
 import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
 import com.badlogic.gdx.scenes.scene2d.InputEvent;
 import com.badlogic.gdx.utils.Array;
-import com.badlogic.gdx.utils.Timer; // <--- Import Timer
+import com.badlogic.gdx.utils.Timer;
 import com.badlogic.gdx.utils.viewport.FitViewport;
 import com.badlogic.gdx.Input.Keys;
 
@@ -62,10 +62,10 @@ public class LevelDuaScreen implements Screen {
             this.background = game.getAssetManager().get("background.png", Texture.class);
         }
 
+        // --- UPDATE PORTAL (Single Texture) ---
         // Lokasi Portal Level 2: (100, 120)
         this.exitPortal = new Portal(
-            game.getAssetManager().get("portal_frame.png", Texture.class),
-            game.getAssetManager().get("portal_effect.png", Texture.class),
+            game.getAssetManager().get("portal_effect.png", Texture.class), // Cukup 1 gambar
             100f, 120f
         );
 
@@ -82,9 +82,6 @@ public class LevelDuaScreen implements Screen {
 
         itemList = new Array<>();
         spawnResources();
-
-        // Tidak reset status di sini agar HP dari level sebelumnya terbawa
-        // HealthManager.getInstance().resetStatus();
 
         this.uiStage.addActor(new SurvivalHud(game.getSkin(), game));
     }
@@ -171,13 +168,17 @@ public class LevelDuaScreen implements Screen {
         game.getBatch().begin();
         game.getBatch().draw(background, 0, 0, WORLD_WIDTH, WORLD_HEIGHT);
 
+        // --- UPDATE RENDER PORTAL ---
         if (isPortalSpawned) {
-            game.getBatch().draw(exitPortal.getFrameTexture(), exitPortal.getPosition().x, exitPortal.getPosition().y, 60, 60);
             float scale = exitPortal.getCurrentScale();
-            float effectSize = 80f * scale;
-            float centerX = exitPortal.getPosition().x + 30f - (effectSize / 2);
-            float centerY = exitPortal.getPosition().y + 30f - (effectSize / 2);
-            game.getBatch().draw(exitPortal.getEffectRegion(), centerX, centerY, effectSize, effectSize);
+            float baseSize = 80f;
+            float drawSize = baseSize * scale;
+            float centerOffset = (baseSize - drawSize) / 2f;
+
+            game.getBatch().draw(exitPortal.getTexture(),
+                exitPortal.getPosition().x + centerOffset,
+                exitPortal.getPosition().y + centerOffset,
+                drawSize, drawSize);
         }
 
         for (Item it : itemList) game.getBatch().draw(it.getTexture(), it.getX(), it.getY(), 50, 50);
@@ -192,12 +193,10 @@ public class LevelDuaScreen implements Screen {
     }
 
     private void updateLogic(float delta) {
-        // Jika game over, stop logic
         if (isGameOver) return;
 
         HealthManager.getInstance().update(delta);
 
-        // --- CEK KONDISI MATI ---
         if (HealthManager.getInstance().getHealth() <= 0) {
             handleEnd("GAME OVER! HP ANDA HABIS!");
             return;

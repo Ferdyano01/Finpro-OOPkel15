@@ -6,40 +6,32 @@ import com.badlogic.gdx.math.Vector2;
 
 public class Portal {
     private final Vector2 position;
-    private final TextureRegion frameRegion;
 
-    // Hapus Animation, ganti dengan TextureRegion tunggal untuk efek
-    private final TextureRegion effectRegion;
+    // Hanya menyimpan satu gambar (region) saja
+    private final TextureRegion region;
 
     private float scaleTimer;
 
-    // Constructor diubah: effectTexture bukan lagi spritesheet, tapi gambar tunggal
-    public Portal(Texture frameTexture, Texture effectTexture, float x, float y) {
+    // Constructor diubah: Hanya menerima SATU texture (gambar utama portal)
+    public Portal(Texture texture, float x, float y) {
         this.position = new Vector2(x, y);
-        this.frameRegion = new TextureRegion(frameTexture);
-
-        // Gunakan seluruh gambar effectTexture sebagai satu region statis
-        this.effectRegion = new TextureRegion(effectTexture);
+        this.region = new TextureRegion(texture);
     }
 
     public void update(float delta) {
-        // Timer ini digunakan untuk menghitung skala denyutan
         scaleTimer += delta;
     }
 
-    public TextureRegion getEffectRegion() {
-        // Cukup kembalikan region gambar statis tadi
-        return effectRegion;
+    // Gunakan method ini untuk mengambil gambar portal di Screen
+    public TextureRegion getTexture() {
+        return region;
     }
 
-    public TextureRegion getFrameTexture() {
-        return frameRegion;
-    }
-
-    // Fungsi ini yang membuat efek "berdenyut" dengan mengubah nilai skala
+    // Fungsi denyut diperhalus
     public float getCurrentScale() {
-        // Skala berayun antara 0.9 (mengecil) dan 1.1 (membesar)
-        return 1.0f + (float)Math.sin(scaleTimer * 5f) * 0.1f;
+        // Pengali 0.05f membuat denyutan kecil (halus)
+        // Skala hanya berubah antara 0.95 sampai 1.05
+        return 1.0f + (float)Math.sin(scaleTimer * 4f) * 0.05f;
     }
 
     public Vector2 getPosition() {

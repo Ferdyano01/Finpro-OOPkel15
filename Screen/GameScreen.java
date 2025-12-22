@@ -24,7 +24,7 @@ import com.badlogic.gdx.scenes.scene2d.ui.TextButton;
 import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
 import com.badlogic.gdx.scenes.scene2d.InputEvent;
 import com.badlogic.gdx.utils.Array;
-import com.badlogic.gdx.utils.Timer; // <--- Import Timer
+import com.badlogic.gdx.utils.Timer;
 import com.badlogic.gdx.utils.viewport.FitViewport;
 import com.badlogic.gdx.Input.Keys;
 import com.badlogic.gdx.math.Vector2;
@@ -84,8 +84,10 @@ public class GameScreen implements Screen {
         spawnResources();
 
         this.mainCheckpoint = new Checkpoint(game.getAssetManager().get("SleepDog.png", Texture.class), 600f, 350f);
+
+        // --- UPDATE PORTAL (Single Texture) ---
+        // Menggunakan "portal_effect.png" sebagai gambar utama portal
         this.exitPortal = new Portal(
-            game.getAssetManager().get("portal_frame.png", Texture.class),
             game.getAssetManager().get("portal_effect.png", Texture.class),
             900f, 500f
         );
@@ -157,7 +159,6 @@ public class GameScreen implements Screen {
             handleEnd("GAME OVER! ANDA MATI KEHAUSAN!");
             return;
         }
-        // ------------------------------------
 
         float oldX = player.getPositionX();
         float oldY = player.getPositionY();
@@ -264,11 +265,20 @@ public class GameScreen implements Screen {
 
         game.getBatch().draw(mainCheckpoint.getTextureRegion(), 600, 350, 192, 192);
 
+        // --- UPDATE RENDER PORTAL ---
         if (mainCheckpoint.isActivated()) {
             float scale = exitPortal.getCurrentScale();
-            float effectSize = 150f * scale;
-            game.getBatch().draw(exitPortal.getEffectRegion(), 900 + (48-effectSize)/2, 500 + (48-effectSize)/2, effectSize, effectSize);
-            game.getBatch().draw(exitPortal.getFrameTexture(), exitPortal.getPosition().x, exitPortal.getPosition().y, 60, 60);
+            float baseSize = 80f; // Ukuran dasar
+            float drawSize = baseSize * scale;
+
+            // Hitung offset agar membesar dari tengah
+            float centerOffset = (baseSize - drawSize) / 2f;
+
+            // Gambar SATU KALI saja
+            game.getBatch().draw(exitPortal.getTexture(),
+                exitPortal.getPosition().x + centerOffset,
+                exitPortal.getPosition().y + centerOffset,
+                drawSize, drawSize);
         }
 
         TextureRegion currentFrame = player.getCurrentFrame();
