@@ -24,19 +24,19 @@ public class Player {
 
     @OneToOne(cascade = CascadeType.ALL)
     @JoinColumn(name = "health_id", referencedColumnName = "id")
-    private Health health;
+    private Health health = new Health();
 
     @OneToOne(cascade = CascadeType.ALL)
     @JoinColumn(name = "inventory_id", referencedColumnName = "id")
-    private Inventory inventory;
+    private Inventory inventory = new Inventory();
 
     @OneToOne(cascade = CascadeType.ALL)
     @JoinColumn(name = "score_id", referencedColumnName = "id")
-    private Score score;
+    private Score score = new Score();
 
     @OneToOne(cascade = CascadeType.ALL)
     @JoinColumn(name = "progress_id", referencedColumnName = "id")
-    private GameProgress gameProgress;
+    private GameProgress gameProgress = new GameProgress();
 
     // 3. Metadata
     @CreationTimestamp
@@ -47,14 +47,9 @@ public class Player {
 
     public Player(String username) {
         this.username = username;
-        this.health = new Health();
-        this.inventory = new Inventory();
-        this.score = new Score();
-        this.gameProgress = new GameProgress();
     }
 
     // Getters and Setters
-
     public UUID getPlayerId() { return playerId; }
     public void setPlayerId(UUID playerId) { this.playerId = playerId; }
 
