@@ -32,6 +32,7 @@ public class CreditsScreen implements Screen {
             "Syifa Aulia Azhim\n\n" +
             "Backend:\n" +
             "Qais Ismail\n\n" +
+            "Haitsam\n\n" +
             "ASSETS BY:\n" +
             "Itch.io Creators\n\n\n" +
             "Thank you for playing!";
